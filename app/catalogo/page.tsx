@@ -24,7 +24,7 @@ export default function CatalogPage() {
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    }, [ ]);
 
     // Toggle category selection
     const handleCategoryToggle = (categoryName: string) => {
