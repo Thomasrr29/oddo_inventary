@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
     // Construir el dominio de búsqueda para Odoo
     const domain: any[] = [];
 
-    // Filtrar solo productos que se pueden vender
     domain.push(['sale_ok', '=', true]);
+    domain.push(['qty_available', '>', 0]);
 
     if (category && category !== 'Todos') {
       // Soportar múltiples categorías separadas por coma
@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
       'write_date',
       'currency_id',
       'image_1024',
+      'taxes_id'
     ];
 
     // Execute both in parallel

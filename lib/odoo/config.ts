@@ -1,11 +1,5 @@
 import type { OdooApiConfig } from '@/types/api';
 
-
-console.log(process.env.ODOO_BASE_URL)
-console.log(process.env.ODOO_DATABASE)
-console.log(process.env.ODOO_USERNAME)
-console.log(process.env.ODOO_PASSWORD)
-
 // Configuración de la API de Odoo
 export const odooConfig: OdooApiConfig = {
   baseUrl: process.env.ODOO_BASE_URL || 'https://your-odoo-instance.com',

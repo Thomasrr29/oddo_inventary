@@ -54,8 +54,6 @@ export default function CatalogPage() {
         const fetchProducts = async () => {
             setLoading(true);
             try {
-                // Fetching from user's API endpoint (Odoo proxy)
-                // Assuming it returns { data: OdooProduct[], meta: { total, page, pageSize, totalPages } }
                 const categoryParam = selectedCategories.length > 0 ? selectedCategories.join(',') : 'Todos';
                 const response = await fetch(`/api/products?page=${currentPage}&category=${categoryParam}`);
                 const result = await response.json();
@@ -64,8 +62,31 @@ export default function CatalogPage() {
                     const rawProducts: OdooProduct[] = result.data || [];
                     setTotalPages(result.meta?.totalPages || 1);
 
+                    // Recoger los tax IDs únicos de todos los productos
+                    const uniqueTaxIds = new Set<number>();
+                    rawProducts.forEach(p => {
+                        if (p.taxes_id) {
+                            p.taxes_id.forEach(id => uniqueTaxIds.add(id));
+                        }
+                    });
+
+                    // Fetch solo los tax IDs únicos (un fetch por cada ID distinto)
+                    const taxCache = new Map<number, any>();
+                    await Promise.all(
+                        Array.from(uniqueTaxIds).map(async (taxId) => {
+                            try {
+                                const taxRes = await fetch(`/api/taxes/${taxId}`);
+                                const taxData = await taxRes.json();
+                                if (taxData.success) {
+                                    taxCache.set(taxId, taxData.data);
+                                }
+                            } catch (e) {
+                                console.error(`Error fetching tax ${taxId}:`, e);
+                            }
+                        })
+                    );
+
                     // GROUPING LOGIC:
-                    // We group by 'product_tmpl_id[0]' (ID) to merge variants.
                     const groupedMap = new Map<number, OdooProduct[]>();
 
                     rawProducts.forEach(p => {
@@ -78,14 +99,15 @@ export default function CatalogPage() {
 
                     // Transform Odoo groups into our 'Product' display type
                     const displayProducts: Product[] = Array.from(groupedMap.values()).map(group => {
-                        // Use the first item as the "Base" for display info
                         const baseItem = group[0];
 
+                        // Obtener el tax desde el cache
+                        const taxId = baseItem.taxes_id?.[0];
+                        const taxData = taxId ? taxCache.get(taxId) : null;
                         // Logic to extract specific "Product Name" without the variant code if possible
                         // Odoo Display Name format: "[CODE] Name (Variant)" or just "Name"
                         // We can try to use product_tmpl_id[1] which is the Template Name!
                         const templateName = baseItem.product_tmpl_id[1];
-
                         // Extract sizes from all variants in the group
                         const sizes = group.map(item => {
                             // Regex to find content inside parentheses at the end of the string
@@ -110,7 +132,7 @@ export default function CatalogPage() {
                             id: baseItem.id.toString(),
                             name: templateName || baseItem.display_name,
                             description: typeof baseItem.description_sale === 'string' ? baseItem.description_sale : '',
-                            price: baseItem.lst_price,
+                            price: baseItem.lst_price + (baseItem.lst_price / 100 * taxData.amount),
                             currency: baseItem.currency_id ? baseItem.currency_id[1] : 'COP',
                             images: imageSrc ? [{
                                 id: '1',
